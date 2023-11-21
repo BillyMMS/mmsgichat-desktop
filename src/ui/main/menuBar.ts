@@ -17,6 +17,7 @@ import {
   MENU_BAR_TOGGLE_IS_TRAY_ICON_ENABLED_CLICKED,
   SIDE_BAR_DOWNLOADS_BUTTON_CLICKED,
   SIDE_BAR_SETTINGS_BUTTON_CLICKED,
+  WEBVIEW_SERVER_RELOADED,
 } from '../actions';
 import { askForAppDataReset } from './dialogs';
 import { getRootWindow } from './rootWindow';
@@ -178,6 +179,21 @@ const selectViewDeps = createStructuredSelector<
   rootWindowState: ({ rootWindowState }) => rootWindowState,
 });
 
+const getCurrentViewWebcontents = async () => {
+  const browserWindow = await getRootWindow();
+
+  if (!browserWindow.isVisible()) {
+    browserWindow.showInactive();
+  }
+  browserWindow.focus();
+  const currentView = select(({ currentView }) => currentView);
+  const url = typeof currentView === 'object' ? currentView.url : null;
+  if (!url) {
+    return null;
+  }
+  return getWebContentsByServerUrl(url);
+};
+
 const createViewMenu = createSelector(
   selectViewDeps,
   ({
@@ -207,6 +223,12 @@ const createViewMenu = createSelector(
               ? getWebContentsByServerUrl(currentView.url)
               : null;
           guestWebContents?.reload();
+          if (typeof currentView === 'object' && !!currentView.url) {
+            dispatch({
+              type: WEBVIEW_SERVER_RELOADED,
+              payload: { url: currentView.url },
+            });
+          }
         },
       },
       {
@@ -225,6 +247,12 @@ const createViewMenu = createSelector(
               ? getWebContentsByServerUrl(currentView.url)
               : null;
           guestWebContents?.reloadIgnoringCache();
+          if (typeof currentView === 'object' && !!currentView.url) {
+            dispatch({
+              type: WEBVIEW_SERVER_RELOADED,
+              payload: { url: currentView.url },
+            });
+          }
         },
       },
       {
@@ -376,17 +404,7 @@ const createViewMenu = createSelector(
         label: t('menus.resetZoom'),
         accelerator: 'CommandOrControl+0',
         click: async () => {
-          const browserWindow = await getRootWindow();
-
-          if (!browserWindow.isVisible()) {
-            browserWindow.showInactive();
-          }
-          browserWindow.focus();
-          const url = typeof currentView === 'object' ? currentView.url : null;
-          if (!url) {
-            return;
-          }
-          const guestWebContents = getWebContentsByServerUrl(url);
+          const guestWebContents = await getCurrentViewWebcontents();
           guestWebContents?.setZoomLevel(0);
         },
       },
@@ -395,16 +413,7 @@ const createViewMenu = createSelector(
         label: t('menus.zoomIn'),
         accelerator: 'CommandOrControl+Plus',
         click: async () => {
-          const browserWindow = await getRootWindow();
-          if (!browserWindow.isVisible()) {
-            browserWindow.showInactive();
-          }
-          browserWindow.focus();
-          const url = typeof currentView === 'object' ? currentView.url : null;
-          if (!url) {
-            return;
-          }
-          const guestWebContents = getWebContentsByServerUrl(url);
+          const guestWebContents = await getCurrentViewWebcontents();
           if (!guestWebContents) {
             return;
           }
@@ -421,21 +430,10 @@ const createViewMenu = createSelector(
         label: t('menus.zoomOut'),
         accelerator: 'CommandOrControl+-',
         click: async () => {
-          const browserWindow = await getRootWindow();
-          if (!browserWindow.isVisible()) {
-            browserWindow.showInactive();
-          }
-          browserWindow.focus();
-          const url = typeof currentView === 'object' ? currentView.url : null;
-          if (!url) {
-            return;
-          }
-
-          const guestWebContents = getWebContentsByServerUrl(url);
+          const guestWebContents = await getCurrentViewWebcontents();
           if (!guestWebContents) {
             return;
           }
-
           const zoomLevel = guestWebContents.getZoomLevel();
           if (zoomLevel <= -9) {
             return;
